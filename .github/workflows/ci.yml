@@ -1,0 +1,46 @@
+name: Release
+on:
+  push:
+    tags: ["v*"]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          if [ "${{ matrix.goarch }}" = "amd64" ]; then make build-linux; else make build-linux-arm64; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.goarch }}
+          path: |
+            xboard-node-linux-${{ matrix.goarch }}
+            xbctl-linux-${{ matrix.goarch }}
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          make_latest: true
+          files: |
+            dist/xboard-node-linux-amd64
+            dist/xboard-node-linux-arm64
+            dist/xbctl-linux-amd64
+            dist/xbctl-linux-arm64
